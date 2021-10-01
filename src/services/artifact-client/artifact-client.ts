@@ -1,0 +1,12 @@
+import { create, UploadOptions, UploadResponse } from '@actions/artifact';
+
+export const uploadArtifact = (
+  artifactName: string,
+  files: string[],
+  rootDir: string,
+  options?: UploadOptions
+): Promise<UploadResponse> => {
+  const artifactClient = create();
+
+  return artifactClient.uploadArtifact(artifactName, files, rootDir, options);
+};

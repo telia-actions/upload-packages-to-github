@@ -1,0 +1,20 @@
+name: Upload packages to github
+description: Package and upload packages to GitHub
+inputs:
+  packages:
+    description: Array of packages to be uploaded.
+    required: true
+  continue_on_error:
+    description: Array of packages to be uploaded.
+    required: false
+    default: false
+  retention_days:
+    description: Array of packages to be uploaded.
+    required: false
+    default: 1
+outputs:
+  artifact:
+    description: List of created artifact metadata.
+runs:
+  using: node12
+  main: dist/index.js

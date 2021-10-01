@@ -1,0 +1,34 @@
+name: Main workflow
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    types: [ 'opened', 'synchronize' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Manually deploy to selected environment. Default environment - production
+          Allowed values - 'production' or 'staging'
+        required: false
+        default: production
+env:
+  DEPLOY_ENVIRONMENT: ${{ github.event.inputs.environment }}
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    name: A job to test workflow
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm run test
+      - name: Build package
+        run: npm run build
