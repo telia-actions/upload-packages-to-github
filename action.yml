@@ -5,11 +5,11 @@ inputs:
     description: Array of packages to be uploaded.
     required: true
   continue_on_error:
-    description: Array of packages to be uploaded.
+    description: Should the upload process be continued when error is encountered.
     required: false
     default: false
   retention_days:
-    description: Array of packages to be uploaded.
+    description: Number of days uploaded artifacts will be kept in GitHub.
     required: false
     default: 1
 outputs:

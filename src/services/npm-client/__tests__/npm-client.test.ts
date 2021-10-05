@@ -1,7 +1,7 @@
-import { packPackage } from '../index';
-import * as childProcessClient from '../../child-process-client';
+import { packPackage } from '../npm-client';
+import * as childProcessClient from '../../child-process-client/child-process-client';
 
-jest.mock('../../child-process-client');
+jest.mock('../../child-process-client/child-process-client');
 
 describe('services npm client', () => {
   describe('packPackage', () => {

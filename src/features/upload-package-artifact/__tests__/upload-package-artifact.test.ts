@@ -1,13 +1,12 @@
 import path from 'path';
-import { uploadPackageArtifact } from '../index';
-import * as npmClient from '../../../services/npm-client';
+import { uploadPackageArtifact } from '../upload-package-artifact';
+import * as npmClient from '../../../services/npm-client/npm-client';
 import * as formattersString from '../../../utils/formatters/string';
-import * as artifactClient from '../../../services/artifact-client';
-import { uploadArtifact } from '../../../services/artifact-client';
+import * as artifactClient from '../../../services/artifact-client/artifact-client';
 import { toAlphaNumeric } from '../../../utils/formatters/string';
 
-jest.mock('../../../services/npm-client');
-jest.mock('../../../services/artifact-client');
+jest.mock('../../../services/npm-client/npm-client');
+jest.mock('../../../services/artifact-client/artifact-client');
 jest.mock('../../../utils/formatters/string');
 
 describe('features upload package artifact', () => {

@@ -7807,27 +7807,6 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
-/***/ 2781:
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-__exportStar(__webpack_require__(3085), exports);
-
-
-/***/ }),
-
 /***/ 3085:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
@@ -7848,8 +7827,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadPackageArtifact = void 0;
 const path_1 = __importDefault(__webpack_require__(5622));
-const artifact_client_1 = __webpack_require__(1390);
-const npm_client_1 = __webpack_require__(7843);
+const artifact_client_1 = __webpack_require__(3586);
+const npm_client_1 = __webpack_require__(1055);
 const string_1 = __webpack_require__(4969);
 const uploadPackageArtifact = (packagePath, options) => __awaiter(void 0, void 0, void 0, function* () {
     const packageJsonPath = path_1.default.resolve(packagePath, 'package.json');
@@ -7894,27 +7873,6 @@ exports.uploadArtifact = uploadArtifact;
 
 /***/ }),
 
-/***/ 1390:
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-__exportStar(__webpack_require__(3586), exports);
-
-
-/***/ }),
-
 /***/ 4537:
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -7940,48 +7898,6 @@ exports.executeCommand = executeCommand;
 
 /***/ }),
 
-/***/ 9137:
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-__exportStar(__webpack_require__(4537), exports);
-
-
-/***/ }),
-
-/***/ 7843:
-/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-__exportStar(__webpack_require__(1055), exports);
-
-
-/***/ }),
-
 /***/ 1055:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
@@ -7998,7 +7914,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.packPackage = void 0;
-const child_process_client_1 = __webpack_require__(9137);
+const child_process_client_1 = __webpack_require__(4537);
 const packPackage = (packagePath) => __awaiter(void 0, void 0, void 0, function* () {
     const packOutput = yield child_process_client_1.executeCommand('npm pack', { cwd: packagePath });
     return packOutput.trim();
@@ -8024,7 +7940,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadPackages = void 0;
-const upload_package_artifact_1 = __webpack_require__(2781);
+const upload_package_artifact_1 = __webpack_require__(3085);
 const core_1 = __webpack_require__(2186);
 const async_1 = __webpack_require__(3158);
 const uploadPackages = () => __awaiter(void 0, void 0, void 0, function* () {

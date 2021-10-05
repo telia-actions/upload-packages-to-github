@@ -1,4 +1,4 @@
-import { uploadArtifact } from '../index';
+import { uploadArtifact } from '../artifact-client';
 import * as artifact from '@actions/artifact';
 import { ArtifactClient } from '@actions/artifact/lib/internal/artifact-client';
 import { mockPartial } from '../../../utils/mocks';

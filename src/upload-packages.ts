@@ -1,4 +1,4 @@
-import { uploadPackageArtifact } from './features/upload-package-artifact';
+import { uploadPackageArtifact } from './features/upload-package-artifact/upload-package-artifact';
 import { getInput, setFailed, setOutput } from '@actions/core';
 import { waterfallMap } from './utils/async';
 
