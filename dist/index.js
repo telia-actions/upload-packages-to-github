@@ -7831,12 +7831,12 @@ const artifact_client_1 = __webpack_require__(3586);
 const npm_client_1 = __webpack_require__(1055);
 const string_1 = __webpack_require__(4969);
 const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
-    const { packageName, projectFolder, shouldPublish } = pkg;
+    const { projectFolder } = pkg;
     const tarName = yield npm_client_1.packPackage(projectFolder);
     const tarPath = path_1.default.resolve(projectFolder, tarName);
     const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
     yield artifact_client_1.uploadArtifact(artifactName, [tarPath], projectFolder, options);
-    return { artifactName, packageName, tarName, shouldPublish };
+    return Object.assign({ artifactName, tarName }, pkg);
 });
 exports.uploadPackageArtifact = uploadPackageArtifact;
 

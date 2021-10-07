@@ -8,7 +8,7 @@ export const uploadPackageArtifact = async (
   pkg: RushPackage,
   options?: UploadOptions
 ): Promise<ArtifactMeta> => {
-  const { packageName, projectFolder, shouldPublish } = pkg;
+  const { projectFolder } = pkg;
 
   const tarName = await packPackage(projectFolder);
   const tarPath = path.resolve(projectFolder, tarName);
@@ -17,5 +17,5 @@ export const uploadPackageArtifact = async (
 
   await uploadArtifact(artifactName, [tarPath], projectFolder, options);
 
-  return { artifactName, packageName, tarName, shouldPublish };
+  return { artifactName, tarName, ...pkg };
 };
