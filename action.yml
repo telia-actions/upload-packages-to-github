@@ -2,7 +2,7 @@ name: Upload packages to github
 description: Package and upload packages to GitHub
 inputs:
   packages:
-    description: Array of packages to be uploaded.
+    description: Array of Rush packages to be uploaded.
     required: true
   continue_on_error:
     description: Should the upload process be continued when error is encountered.

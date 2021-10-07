@@ -8,7 +8,7 @@ export const uploadPackages = async (): Promise<void> => {
     const continueOnErrorInput = getInput('continue_on_error');
     const retentionDaysInput = getInput('retention_days');
 
-    const packages: string[] = JSON.parse(packagesInput);
+    const packages: RushPackage[] = JSON.parse(packagesInput);
     const continueOnError: boolean = JSON.parse(continueOnErrorInput);
     const retentionDays: number = JSON.parse(retentionDaysInput);
 

@@ -5,19 +5,17 @@ import { packPackage } from '../../services/npm-client/npm-client';
 import { toAlphaNumeric } from '../../utils/formatters/string';
 
 export const uploadPackageArtifact = async (
-  packagePath: string,
+  pkg: RushPackage,
   options?: UploadOptions
 ): Promise<ArtifactMeta> => {
-  const packageJsonPath = path.resolve(packagePath, 'package.json');
+  const { packageName, projectFolder, shouldPublish } = pkg;
 
-  const { name } = require(packageJsonPath);
+  const tarName = await packPackage(projectFolder);
+  const tarPath = path.resolve(projectFolder, tarName);
 
-  const tarName = await packPackage(packagePath);
-  const tarPath = path.resolve(packagePath, tarName);
+  const artifactName = toAlphaNumeric(projectFolder, '_');
 
-  const artifactName = toAlphaNumeric(packagePath, '_');
+  await uploadArtifact(artifactName, [tarPath], projectFolder, options);
 
-  await uploadArtifact(artifactName, [tarPath], packagePath, options);
-
-  return { artifactName, packageName: name, tarName };
+  return { artifactName, packageName, tarName, shouldPublish };
 };

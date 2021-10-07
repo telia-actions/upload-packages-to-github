@@ -7830,14 +7830,13 @@ const path_1 = __importDefault(__webpack_require__(5622));
 const artifact_client_1 = __webpack_require__(3586);
 const npm_client_1 = __webpack_require__(1055);
 const string_1 = __webpack_require__(4969);
-const uploadPackageArtifact = (packagePath, options) => __awaiter(void 0, void 0, void 0, function* () {
-    const packageJsonPath = path_1.default.resolve(packagePath, 'package.json');
-    const { name } = require(packageJsonPath);
-    const tarName = yield npm_client_1.packPackage(packagePath);
-    const tarPath = path_1.default.resolve(packagePath, tarName);
-    const artifactName = string_1.toAlphaNumeric(packagePath, '_');
-    yield artifact_client_1.uploadArtifact(artifactName, [tarPath], packagePath, options);
-    return { artifactName, packageName: name, tarName };
+const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
+    const { packageName, projectFolder, shouldPublish } = pkg;
+    const tarName = yield npm_client_1.packPackage(projectFolder);
+    const tarPath = path_1.default.resolve(projectFolder, tarName);
+    const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
+    yield artifact_client_1.uploadArtifact(artifactName, [tarPath], projectFolder, options);
+    return { artifactName, packageName, tarName, shouldPublish };
 });
 exports.uploadPackageArtifact = uploadPackageArtifact;
 
