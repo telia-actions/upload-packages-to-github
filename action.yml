@@ -1,0 +1,20 @@
+name: Upload packages to github
+description: Package and upload packages to GitHub
+inputs:
+  packages:
+    description: Array of Rush packages to be uploaded.
+    required: true
+  continue_on_error:
+    description: Should the upload process be continued when error is encountered.
+    required: false
+    default: false
+  retention_days:
+    description: Number of days uploaded artifacts will be kept in GitHub.
+    required: false
+    default: 1
+outputs:
+  artifact:
+    description: List of created artifact metadata.
+runs:
+  using: node12
+  main: dist/index.js
