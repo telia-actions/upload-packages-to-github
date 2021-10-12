@@ -8,6 +8,10 @@ inputs:
     description: Should the upload process be continued when error is encountered.
     required: false
     default: false
+  pre_release:
+    description: Should the artifacts be packaged and uploaded for pre-release.
+    required: false
+    default: false
   retention_days:
     description: Number of days uploaded artifacts will be kept in GitHub.
     required: false

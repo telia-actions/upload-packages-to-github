@@ -5,3 +5,7 @@ export const packPackage = async (packagePath: string): Promise<string> => {
 
   return packOutput.trim();
 };
+
+export const changeVersion = (packagePath: string, version: string): Promise<string> => {
+  return executeCommand(`npm version ${version}`, { cwd: packagePath });
+};

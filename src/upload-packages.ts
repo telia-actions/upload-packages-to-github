@@ -7,15 +7,19 @@ export const uploadPackages = async (): Promise<void> => {
     const packagesInput = getInput('packages');
     const continueOnErrorInput = getInput('continue_on_error');
     const retentionDaysInput = getInput('retention_days');
+    const preReleaseInput = getInput('pre_release');
 
     const packages: RushPackage[] = JSON.parse(packagesInput);
     const continueOnError: boolean = JSON.parse(continueOnErrorInput);
     const retentionDays: number = JSON.parse(retentionDaysInput);
+    const preRelease: boolean = JSON.parse(preReleaseInput);
+
+    console.log(preRelease);
 
     const uploadOptions = { continueOnError, retentionDays };
 
     const artifacts = await waterfallMap(packages, (pkg) =>
-      uploadPackageArtifact(pkg, uploadOptions)
+      uploadPackageArtifact(pkg, preRelease, uploadOptions)
     );
 
     setOutput('artifacts', artifacts);

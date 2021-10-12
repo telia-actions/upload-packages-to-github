@@ -7829,10 +7829,23 @@ exports.uploadPackageArtifact = void 0;
 const path_1 = __importDefault(__webpack_require__(5622));
 const artifact_client_1 = __webpack_require__(1390);
 const npm_client_1 = __webpack_require__(1055);
+const json_client_1 = __webpack_require__(6885);
 const string_1 = __webpack_require__(4969);
-const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
+const uploadPackageArtifact = (pkg, preRelease, options) => __awaiter(void 0, void 0, void 0, function* () {
     const { projectFolder } = pkg;
+    const packageJsonPath = path_1.default.resolve(projectFolder, 'package.json');
+    if (preRelease) {
+        const { version } = json_client_1.read(packageJsonPath);
+        console.log('version', version);
+        const prereleaseVersion = `${version}-${Date.now()}`;
+        console.log('prereleaseVersion', prereleaseVersion);
+        const result = yield npm_client_1.changeVersion(projectFolder, prereleaseVersion);
+        console.log('result', result);
+    }
+    const { version } = json_client_1.read(packageJsonPath);
+    console.log('version', version);
     const tarName = yield npm_client_1.packPackage(projectFolder);
+    console.log('tarName', tarName);
     const tarPath = path_1.default.resolve(projectFolder, tarName);
     const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
     yield artifact_client_1.uploadArtifact(artifactName, [tarPath], projectFolder, options);
@@ -7905,26 +7918,69 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 /***/ }),
 
 /***/ 4537:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.executeCommand = void 0;
+const util_1 = __importDefault(__webpack_require__(1669));
+const child_process_1 = __webpack_require__(3129);
+const execAsync = util_1.default.promisify(child_process_1.exec);
+const executeCommand = (cmd, options) => __awaiter(void 0, void 0, void 0, function* () {
+    console.log('executing command:', cmd);
+    const { stdout } = yield execAsync(cmd, options);
+    return stdout.toString();
+});
+exports.executeCommand = executeCommand;
+
+
+/***/ }),
+
+/***/ 6885:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__webpack_require__(4765), exports);
+
+
+/***/ }),
+
+/***/ 4765:
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.executeCommand = void 0;
-const child_process_1 = __webpack_require__(3129);
-const executeCommand = (cmd, options) => {
-    return new Promise((resolve, reject) => {
-        child_process_1.exec(cmd, options, (error, result) => {
-            if (error) {
-                reject(error);
-            }
-            else {
-                resolve(result.toString());
-            }
-        });
-    });
+exports.read = void 0;
+const read = (path) => {
+    return require(path);
 };
-exports.executeCommand = executeCommand;
+exports.read = read;
 
 
 /***/ }),
@@ -7944,13 +8000,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.packPackage = void 0;
+exports.changeVersion = exports.packPackage = void 0;
 const child_process_client_1 = __webpack_require__(4537);
 const packPackage = (packagePath) => __awaiter(void 0, void 0, void 0, function* () {
     const packOutput = yield child_process_client_1.executeCommand('npm pack', { cwd: packagePath });
     return packOutput.trim();
 });
 exports.packPackage = packPackage;
+const changeVersion = (packagePath, version) => {
+    return child_process_client_1.executeCommand(`npm version ${version}`, { cwd: packagePath });
+};
+exports.changeVersion = changeVersion;
 
 
 /***/ }),
@@ -7979,11 +8039,14 @@ const uploadPackages = () => __awaiter(void 0, void 0, void 0, function* () {
         const packagesInput = core_1.getInput('packages');
         const continueOnErrorInput = core_1.getInput('continue_on_error');
         const retentionDaysInput = core_1.getInput('retention_days');
+        const preReleaseInput = core_1.getInput('pre_release');
         const packages = JSON.parse(packagesInput);
         const continueOnError = JSON.parse(continueOnErrorInput);
         const retentionDays = JSON.parse(retentionDaysInput);
+        const preRelease = JSON.parse(preReleaseInput);
+        console.log(preRelease);
         const uploadOptions = { continueOnError, retentionDays };
-        const artifacts = yield async_1.waterfallMap(packages, (pkg) => upload_package_artifact_1.uploadPackageArtifact(pkg, uploadOptions));
+        const artifacts = yield async_1.waterfallMap(packages, (pkg) => upload_package_artifact_1.uploadPackageArtifact(pkg, preRelease, uploadOptions));
         core_1.setOutput('artifacts', artifacts);
     }
     catch (e) {
