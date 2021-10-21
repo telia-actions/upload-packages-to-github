@@ -7827,7 +7827,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadPackageArtifact = void 0;
 const path_1 = __importDefault(__webpack_require__(5622));
-const artifact_client_1 = __webpack_require__(3586);
+const artifact_client_1 = __webpack_require__(1390);
 const npm_client_1 = __webpack_require__(1055);
 const string_1 = __webpack_require__(4969);
 const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
@@ -7868,6 +7868,38 @@ const uploadArtifact = (artifactName, files, rootDir, options) => {
     return artifactClient.uploadArtifact(artifactName, files, rootDir, options);
 };
 exports.uploadArtifact = uploadArtifact;
+
+
+/***/ }),
+
+/***/ 1390:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__webpack_require__(3586), exports);
+__exportStar(__webpack_require__(8247), exports);
+
+
+/***/ }),
+
+/***/ 8247:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
 
 
 /***/ }),

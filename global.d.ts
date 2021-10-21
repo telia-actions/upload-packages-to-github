@@ -3,8 +3,3 @@ type RushPackage = {
   projectFolder: string;
   shouldPublish: boolean;
 };
-
-type ArtifactMeta = {
-  tarName: string;
-  artifactName: string;
-} & RushPackage;

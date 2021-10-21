@@ -1,6 +1,7 @@
 import { uploadPackages } from '../upload-packages';
 import * as actionsCore from '@actions/core';
 import * as uploadPackageArtifact from '../features/upload-package-artifact/upload-package-artifact';
+import { ArtifactMeta } from '../services/artifact-client';
 import { mockPartial } from '../utils/mocks';
 import { when } from 'jest-when';
 

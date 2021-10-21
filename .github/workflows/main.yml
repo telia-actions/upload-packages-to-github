@@ -1,9 +1,9 @@
 name: Main workflow
 on:
   push:
-    branches: [ 'main' ]
+    branches: ['main']
   pull_request:
-    types: [ 'opened', 'synchronize' ]
+    types: ['opened', 'synchronize']
 jobs:
   main:
     runs-on: ubuntu-latest

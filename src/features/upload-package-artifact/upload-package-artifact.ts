@@ -1,6 +1,6 @@
 import path from 'path';
 import { UploadOptions } from '@actions/artifact';
-import { uploadArtifact } from '../../services/artifact-client/artifact-client';
+import { ArtifactMeta, uploadArtifact } from '../../services/artifact-client';
 import { packPackage } from '../../services/npm-client/npm-client';
 import { toAlphaNumeric } from '../../utils/formatters/string';
 
