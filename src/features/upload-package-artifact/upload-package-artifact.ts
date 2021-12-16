@@ -8,10 +8,17 @@ export const uploadPackageArtifact = async (
   pkg: RushPackage,
   options?: UploadOptions
 ): Promise<ArtifactMeta> => {
-  const { projectFolder } = pkg;
+  const { projectFolder, packageName } = pkg;
+  // indexOf may return -1, in which case we take the whole string
+  // If not we skip the / and get everything after the package's scope
+  const logFileNames = packageName.substring(packageName.indexOf('/') + 1);
 
-  const files = (await packlist({ path: projectFolder })).map((filename) =>
-    join(projectFolder, filename)
+  const files = (await packlist({ path: projectFolder })).map((filename) => {
+    return join(projectFolder, filename);
+  });
+  files.push(
+    join(projectFolder, `${logFileNames}.build.log`),
+    join(projectFolder, `${logFileNames}.build.error.log`)
   );
 
   // eslint-disable-next-line no-console
