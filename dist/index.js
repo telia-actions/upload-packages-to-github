@@ -8944,9 +8944,10 @@ exports.uploadPackageArtifact = void 0;
 const artifact_client_1 = __webpack_require__(1390);
 const string_1 = __webpack_require__(4969);
 const npm_packlist_1 = __importDefault(__webpack_require__(1933));
+const path_1 = __webpack_require__(5622);
 const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
     const { projectFolder } = pkg;
-    const files = yield npm_packlist_1.default({ path: projectFolder });
+    const files = (yield npm_packlist_1.default({ path: projectFolder })).map((filename) => path_1.join(projectFolder, filename));
     const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
     yield artifact_client_1.uploadArtifact(artifactName, files, projectFolder, options);
     return Object.assign({ artifactName }, pkg);
