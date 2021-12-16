@@ -3,6 +3,7 @@ import { ArtifactMeta, uploadArtifact } from '../../services/artifact-client';
 import { toAlphaNumeric } from '../../utils/formatters/string';
 import packlist from 'npm-packlist';
 import { join } from 'path';
+import { existsSync } from 'fs';
 
 export const uploadPackageArtifact = async (
   pkg: RushPackage,
@@ -11,15 +12,16 @@ export const uploadPackageArtifact = async (
   const { projectFolder, packageName } = pkg;
   // indexOf may return -1, in which case we take the whole string
   // If not we skip the / and get everything after the package's scope
-  const logFileNames = packageName.substring(packageName.indexOf('/') + 1);
+  const simplePackageName = packageName.substring(packageName.indexOf('/') + 1);
 
   const files = (await packlist({ path: projectFolder })).map((filename) => {
     return join(projectFolder, filename);
   });
-  files.push(
-    join(projectFolder, `${logFileNames}.build.log`),
-    join(projectFolder, `${logFileNames}.build.error.log`)
-  );
+  const logFiles = [
+    join(projectFolder, `${simplePackageName}.build.log`),
+    join(projectFolder, `${simplePackageName}.build.error.log`),
+  ];
+  files.push(...logFiles.filter(existsSync));
 
   // eslint-disable-next-line no-console
   console.log('The project folder is', projectFolder);

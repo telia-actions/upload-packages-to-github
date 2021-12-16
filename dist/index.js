@@ -8945,15 +8945,20 @@ const artifact_client_1 = __webpack_require__(1390);
 const string_1 = __webpack_require__(4969);
 const npm_packlist_1 = __importDefault(__webpack_require__(1933));
 const path_1 = __webpack_require__(5622);
+const fs_1 = __webpack_require__(5747);
 const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
     const { projectFolder, packageName } = pkg;
     // indexOf may return -1, in which case we take the whole string
     // If not we skip the / and get everything after the package's scope
-    const logFileNames = packageName.substring(packageName.indexOf('/') + 1);
+    const simplePackageName = packageName.substring(packageName.indexOf('/') + 1);
     const files = (yield npm_packlist_1.default({ path: projectFolder })).map((filename) => {
         return path_1.join(projectFolder, filename);
     });
-    files.push(path_1.join(projectFolder, `${logFileNames}.build.log`), path_1.join(projectFolder, `${logFileNames}.build.error.log`));
+    const logFiles = [
+        path_1.join(projectFolder, `${simplePackageName}.build.log`),
+        path_1.join(projectFolder, `${simplePackageName}.build.error.log`),
+    ];
+    files.push(...logFiles.filter(fs_1.existsSync));
     // eslint-disable-next-line no-console
     console.log('The project folder is', projectFolder);
     // eslint-disable-next-line no-console
