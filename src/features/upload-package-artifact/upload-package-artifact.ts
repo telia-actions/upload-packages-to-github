@@ -14,6 +14,11 @@ export const uploadPackageArtifact = async (
     join(projectFolder, filename)
   );
 
+  // eslint-disable-next-line no-console
+  console.log('The project folder is', projectFolder);
+  // eslint-disable-next-line no-console
+  console.log('The files are', files);
+
   const artifactName = toAlphaNumeric(projectFolder, '_');
 
   await uploadArtifact(artifactName, files, projectFolder, options);
