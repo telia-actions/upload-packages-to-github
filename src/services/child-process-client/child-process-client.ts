@@ -1,6 +1,6 @@
 import { exec, ExecOptions } from 'child_process';
 
-export const executeCommand = (cmd: string, options?: ExecOptions): Promise<string> => {
+export const executeCommand = async (cmd: string, options?: ExecOptions): Promise<string> => {
   return new Promise((resolve, reject) => {
     exec(cmd, options, (error, result) => {
       if (error) {
