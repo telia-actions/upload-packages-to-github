@@ -8936,34 +8936,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadPackageArtifact = void 0;
 const artifact_client_1 = __webpack_require__(1390);
 const string_1 = __webpack_require__(4969);
-const npm_packlist_1 = __importDefault(__webpack_require__(1933));
-const path_1 = __webpack_require__(5622);
-const fs_1 = __webpack_require__(5747);
+const file_selection_1 = __webpack_require__(6515);
 const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
-    const { projectFolder, packageName } = pkg;
-    // indexOf may return -1, in which case we take the whole string
-    // If not we skip the / and get everything after the package's scope
-    const simplePackageName = packageName.substring(packageName.indexOf('/') + 1);
-    const files = (yield npm_packlist_1.default({ path: projectFolder })).map((filename) => {
-        return path_1.join(projectFolder, filename);
-    });
-    const logFiles = [
-        path_1.join(projectFolder, `${simplePackageName}.build.log`),
-        path_1.join(projectFolder, `${simplePackageName}.build.error.log`),
-    ];
-    files.push(...logFiles.filter(fs_1.existsSync));
-    // eslint-disable-next-line no-console
-    console.log('The project folder is', projectFolder);
-    // eslint-disable-next-line no-console
-    console.log('The files are', files);
+    const { projectFolder } = pkg;
     const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
+    const files = yield file_selection_1.filesToPack(pkg);
     yield artifact_client_1.uploadArtifact(artifactName, files, projectFolder, options);
     return Object.assign({ artifactName }, pkg);
 });
@@ -9038,6 +9019,69 @@ __exportStar(__webpack_require__(8247), exports);
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+
+
+/***/ }),
+
+/***/ 1111:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.filesToPack = void 0;
+const npm_packlist_1 = __importDefault(__webpack_require__(1933));
+const path_1 = __webpack_require__(5622);
+const fs_1 = __webpack_require__(5747);
+const filesToPack = ({ packageName, projectFolder, }) => __awaiter(void 0, void 0, void 0, function* () {
+    // indexOf may return -1, in which case we take the whole string
+    // If not we skip the first /, and thus get everything after the package's scope
+    const simplePackageName = packageName.substring(packageName.indexOf('/') + 1);
+    const filesPromise = npm_packlist_1.default({ path: projectFolder });
+    const logFiles = [
+        path_1.join(projectFolder, `${simplePackageName}.build.log`),
+        path_1.join(projectFolder, `${simplePackageName}.build.error.log`),
+    ];
+    const files = (yield filesPromise).map((filename) => {
+        return path_1.join(projectFolder, filename);
+    });
+    files.push(...logFiles.filter(fs_1.existsSync));
+    return files;
+});
+exports.filesToPack = filesToPack;
+
+
+/***/ }),
+
+/***/ 6515:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__webpack_require__(1111), exports);
 
 
 /***/ }),
