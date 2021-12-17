@@ -13,7 +13,7 @@ inputs:
     required: false
     default: 1
 outputs:
-  artifact:
+  artifacts:
     description: List of created artifact metadata.
 runs:
   using: node12
