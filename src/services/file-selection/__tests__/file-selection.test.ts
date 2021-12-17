@@ -82,7 +82,6 @@ function mockedPackInput(testData: TestData): RushPackage {
   return {
     packageName: `@${testData.scope}/${testData.name}`,
     projectFolder: resolve('.', testData.folder),
-    shouldPublish: false,
   };
 }
 

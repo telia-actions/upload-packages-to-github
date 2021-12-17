@@ -13,7 +13,6 @@ describe('features upload package artifact', () => {
       const pkg = {
         packageName: 'packageName',
         projectFolder: 'projectFolder',
-        shouldPublish: true,
       };
 
       const artifactName = 'artifactName';

@@ -11,5 +11,4 @@ export type RecursivePartial<T> = {
 export type RushPackage = {
   packageName: string;
   projectFolder: string;
-  shouldPublish: boolean;
 };
