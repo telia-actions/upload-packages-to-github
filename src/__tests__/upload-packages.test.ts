@@ -73,15 +73,27 @@ describe('upload packages', () => {
     expect(getInputSpy).toHaveBeenCalledWith('continue_on_error');
     expect(getInputSpy).toHaveBeenCalledWith('retention_days');
 
-    expect(uploadPackageArtifactSpy).toHaveBeenCalledTimes(1);
     expect(uploadPackageArtifactSpy).toHaveBeenCalledWith('package1', {
       continueOnError,
       retentionDays,
     });
+    expect(uploadPackageArtifactSpy).toHaveBeenCalledTimes(1);
 
     expect(setOutputSpy).toHaveBeenCalledTimes(0);
 
     expect(setFailedSpy).toHaveBeenCalledTimes(1);
     expect(setFailedSpy).toHaveBeenCalledWith(error.message);
+  });
+
+  it('should set failure when a malformed error is encountered', async () => {
+    uploadPackageArtifactSpy.mockImplementation(() => {
+      // eslint-disable-next-line no-throw-literal
+      throw 'Error';
+    });
+
+    await uploadPackages();
+
+    expect(setFailedSpy).toHaveBeenCalledTimes(1);
+    expect(setFailedSpy).toHaveBeenCalledWith('Error');
   });
 });

@@ -9044,7 +9044,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.filesToPack = void 0;
 const npm_packlist_1 = __importDefault(__webpack_require__(1933));
 const path_1 = __webpack_require__(5622);
-const fs_1 = __webpack_require__(5747);
+const files_1 = __webpack_require__(7466);
 const filesToPack = ({ packageName, projectFolder, }) => __awaiter(void 0, void 0, void 0, function* () {
     // indexOf may return -1, in which case we take the whole string
     // If not we skip the first /, and thus get everything after the package's scope
@@ -9057,7 +9057,7 @@ const filesToPack = ({ packageName, projectFolder, }) => __awaiter(void 0, void 
     const files = (yield filesPromise).map((filename) => {
         return path_1.join(projectFolder, filename);
     });
-    files.push(...logFiles.filter(fs_1.existsSync));
+    files.push(...logFiles.filter(files_1.existsSync));
     return files;
 });
 exports.filesToPack = filesToPack;
@@ -9114,14 +9114,22 @@ const uploadPackages = () => __awaiter(void 0, void 0, void 0, function* () {
         const continueOnError = JSON.parse(continueOnErrorInput);
         const retentionDays = JSON.parse(retentionDaysInput);
         const uploadOptions = { continueOnError, retentionDays };
-        const artifacts = yield async_1.waterfallMap(packages, (pkg) => upload_package_artifact_1.uploadPackageArtifact(pkg, uploadOptions));
+        const artifacts = yield async_1.waterfallMap(packages, (pkg) => __awaiter(void 0, void 0, void 0, function* () { return upload_package_artifact_1.uploadPackageArtifact(pkg, uploadOptions); }));
         core_1.setOutput('artifacts', artifacts);
     }
     catch (e) {
-        core_1.setFailed(e.message);
+        if (hasMessage(e)) {
+            core_1.setFailed(e.message);
+        }
+        else {
+            core_1.setFailed(e);
+        }
     }
 });
 exports.uploadPackages = uploadPackages;
+function hasMessage(e) {
+    return typeof e === 'object' && 'message' in e;
+}
 
 
 /***/ }),
@@ -9151,6 +9159,24 @@ const waterfallMap = (array, mapFn) => __awaiter(void 0, void 0, void 0, functio
     return result;
 });
 exports.waterfallMap = waterfallMap;
+
+
+/***/ }),
+
+/***/ 7466:
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.existsSync = void 0;
+const fs_1 = __webpack_require__(5747);
+// Attempting to mock fs can lead to issues since node uses it internally
+// So we have this very simple proxy
+function existsSync(path) {
+    return fs_1.existsSync(path);
+}
+exports.existsSync = existsSync;
 
 
 /***/ }),

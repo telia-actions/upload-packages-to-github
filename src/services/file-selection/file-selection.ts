@@ -1,6 +1,7 @@
 import packlist from 'npm-packlist';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync } from '../../utils/files';
+import { RushPackage } from '../../utils/types';
 
 export const filesToPack = async ({
   packageName,

@@ -1,6 +1,7 @@
 import { uploadPackageArtifact } from './features/upload-package-artifact/upload-package-artifact';
 import { getInput, setFailed, setOutput } from '@actions/core';
 import { waterfallMap } from './utils/async';
+import { RushPackage } from './utils/types';
 
 export const uploadPackages = async (): Promise<void> => {
   try {
@@ -14,12 +15,20 @@ export const uploadPackages = async (): Promise<void> => {
 
     const uploadOptions = { continueOnError, retentionDays };
 
-    const artifacts = await waterfallMap(packages, (pkg) =>
+    const artifacts = await waterfallMap(packages, async (pkg) =>
       uploadPackageArtifact(pkg, uploadOptions)
     );
 
     setOutput('artifacts', artifacts);
   } catch (e) {
-    setFailed(e.message);
+    if (hasMessage(e)) {
+      setFailed(e.message);
+    } else {
+      setFailed(e as Error);
+    }
   }
 };
+
+function hasMessage<T>(e: T): e is T & { message: string } {
+  return typeof e === 'object' && 'message' in e;
+}
