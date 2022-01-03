@@ -1,4 +1,5 @@
+import { RushPackage } from '../../utils/types';
+
 export type ArtifactMeta = {
-  tarName: string;
   artifactName: string;
 } & RushPackage;

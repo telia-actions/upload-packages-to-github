@@ -1,6 +1,6 @@
 import { create, UploadOptions, UploadResponse } from '@actions/artifact';
 
-export const uploadArtifact = (
+export const uploadArtifact = async (
   artifactName: string,
   files: string[],
   rootDir: string,

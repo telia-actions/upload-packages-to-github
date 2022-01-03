@@ -1,8 +1,8 @@
-import path from 'path';
 import { UploadOptions } from '@actions/artifact';
 import { ArtifactMeta, uploadArtifact } from '../../services/artifact-client';
-import { packPackage } from '../../services/npm-client/npm-client';
 import { toAlphaNumeric } from '../../utils/formatters/string';
+import { filesToPack } from '../../services/file-selection';
+import { RushPackage } from '../../utils/types';
 
 export const uploadPackageArtifact = async (
   pkg: RushPackage,
@@ -10,12 +10,11 @@ export const uploadPackageArtifact = async (
 ): Promise<ArtifactMeta> => {
   const { projectFolder } = pkg;
 
-  const tarName = await packPackage(projectFolder);
-  const tarPath = path.resolve(projectFolder, tarName);
-
   const artifactName = toAlphaNumeric(projectFolder, '_');
 
-  await uploadArtifact(artifactName, [tarPath], projectFolder, options);
+  const files = await filesToPack(pkg);
 
-  return { artifactName, tarName, ...pkg };
+  await uploadArtifact(artifactName, files, projectFolder, options);
+
+  return { artifactName, ...pkg };
 };

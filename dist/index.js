@@ -5166,6 +5166,306 @@ GlobSync.prototype._makeAbs = function (f) {
 
 /***/ }),
 
+/***/ 7629:
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+
+
+const fs = __webpack_require__(5747)
+const path = __webpack_require__(5622)
+const EE = __webpack_require__(8614).EventEmitter
+const Minimatch = __webpack_require__(3973).Minimatch
+
+class Walker extends EE {
+  constructor (opts) {
+    opts = opts || {}
+    super(opts)
+    // set to true if this.path is a symlink, whether follow is true or not
+    this.isSymbolicLink = opts.isSymbolicLink
+    this.path = opts.path || process.cwd()
+    this.basename = path.basename(this.path)
+    this.ignoreFiles = opts.ignoreFiles || ['.ignore']
+    this.ignoreRules = {}
+    this.parent = opts.parent || null
+    this.includeEmpty = !!opts.includeEmpty
+    this.root = this.parent ? this.parent.root : this.path
+    this.follow = !!opts.follow
+    this.result = this.parent ? this.parent.result : new Set()
+    this.entries = null
+    this.sawError = false
+  }
+
+  sort (a, b) {
+    return a.localeCompare(b, 'en')
+  }
+
+  emit (ev, data) {
+    let ret = false
+    if (!(this.sawError && ev === 'error')) {
+      if (ev === 'error') {
+        this.sawError = true
+      } else if (ev === 'done' && !this.parent) {
+        data = Array.from(data)
+          .map(e => /^@/.test(e) ? `./${e}` : e).sort(this.sort)
+        this.result = data
+      }
+
+      if (ev === 'error' && this.parent) {
+        ret = this.parent.emit('error', data)
+      } else {
+        ret = super.emit(ev, data)
+      }
+    }
+    return ret
+  }
+
+  start () {
+    fs.readdir(this.path, (er, entries) =>
+      er ? this.emit('error', er) : this.onReaddir(entries))
+    return this
+  }
+
+  isIgnoreFile (e) {
+    return e !== '.' &&
+      e !== '..' &&
+      this.ignoreFiles.indexOf(e) !== -1
+  }
+
+  onReaddir (entries) {
+    this.entries = entries
+    if (entries.length === 0) {
+      if (this.includeEmpty) {
+        this.result.add(this.path.substr(this.root.length + 1))
+      }
+      this.emit('done', this.result)
+    } else {
+      const hasIg = this.entries.some(e =>
+        this.isIgnoreFile(e))
+
+      if (hasIg) {
+        this.addIgnoreFiles()
+      } else {
+        this.filterEntries()
+      }
+    }
+  }
+
+  addIgnoreFiles () {
+    const newIg = this.entries
+      .filter(e => this.isIgnoreFile(e))
+
+    let igCount = newIg.length
+    const then = _ => {
+      if (--igCount === 0) {
+        this.filterEntries()
+      }
+    }
+
+    newIg.forEach(e => this.addIgnoreFile(e, then))
+  }
+
+  addIgnoreFile (file, then) {
+    const ig = path.resolve(this.path, file)
+    fs.readFile(ig, 'utf8', (er, data) =>
+      er ? this.emit('error', er) : this.onReadIgnoreFile(file, data, then))
+  }
+
+  onReadIgnoreFile (file, data, then) {
+    const mmopt = {
+      matchBase: true,
+      dot: true,
+      flipNegate: true,
+      nocase: true,
+    }
+    const rules = data.split(/\r?\n/)
+      .filter(line => !/^#|^$/.test(line.trim()))
+      .map(r => new Minimatch(r, mmopt))
+
+    this.ignoreRules[file] = rules
+
+    then()
+  }
+
+  filterEntries () {
+    // at this point we either have ignore rules, or just inheriting
+    // this exclusion is at the point where we know the list of
+    // entries in the dir, but don't know what they are.  since
+    // some of them *might* be directories, we have to run the
+    // match in dir-mode as well, so that we'll pick up partials
+    // of files that will be included later.  Anything included
+    // at this point will be checked again later once we know
+    // what it is.
+    const filtered = this.entries.map(entry => {
+      // at this point, we don't know if it's a dir or not.
+      const passFile = this.filterEntry(entry)
+      const passDir = this.filterEntry(entry, true)
+      return (passFile || passDir) ? [entry, passFile, passDir] : false
+    }).filter(e => e)
+
+    // now we stat them all
+    // if it's a dir, and passes as a dir, then recurse
+    // if it's not a dir, but passes as a file, add to set
+    let entryCount = filtered.length
+    if (entryCount === 0) {
+      this.emit('done', this.result)
+    } else {
+      const then = _ => {
+        if (--entryCount === 0) {
+          this.emit('done', this.result)
+        }
+      }
+      filtered.forEach(filt => {
+        const entry = filt[0]
+        const file = filt[1]
+        const dir = filt[2]
+        this.stat({ entry, file, dir }, then)
+      })
+    }
+  }
+
+  onstat ({ st, entry, file, dir, isSymbolicLink }, then) {
+    const abs = this.path + '/' + entry
+    if (!st.isDirectory()) {
+      if (file) {
+        this.result.add(abs.substr(this.root.length + 1))
+      }
+      then()
+    } else {
+      // is a directory
+      if (dir) {
+        this.walker(entry, { isSymbolicLink }, then)
+      } else {
+        then()
+      }
+    }
+  }
+
+  stat ({ entry, file, dir }, then) {
+    const abs = this.path + '/' + entry
+    fs.lstat(abs, (er, st) => {
+      if (er) {
+        this.emit('error', er)
+      } else {
+        const isSymbolicLink = st.isSymbolicLink()
+        if (this.follow && isSymbolicLink) {
+          fs.stat(abs, (er, st) => {
+            if (er) {
+              this.emit('error', er)
+            } else {
+              this.onstat({ st, entry, file, dir, isSymbolicLink }, then)
+            }
+          })
+        } else {
+          this.onstat({ st, entry, file, dir, isSymbolicLink }, then)
+        }
+      }
+    })
+  }
+
+  walkerOpt (entry, opts) {
+    return {
+      path: this.path + '/' + entry,
+      parent: this,
+      ignoreFiles: this.ignoreFiles,
+      follow: this.follow,
+      includeEmpty: this.includeEmpty,
+      ...opts,
+    }
+  }
+
+  walker (entry, opts, then) {
+    new Walker(this.walkerOpt(entry, opts)).on('done', then).start()
+  }
+
+  filterEntry (entry, partial) {
+    let included = true
+
+    // this = /a/b/c
+    // entry = d
+    // parent /a/b sees c/d
+    if (this.parent && this.parent.filterEntry) {
+      var pt = this.basename + '/' + entry
+      included = this.parent.filterEntry(pt, partial)
+    }
+
+    this.ignoreFiles.forEach(f => {
+      if (this.ignoreRules[f]) {
+        this.ignoreRules[f].forEach(rule => {
+          // negation means inclusion
+          // so if it's negated, and already included, no need to check
+          // likewise if it's neither negated nor included
+          if (rule.negate !== included) {
+            // first, match against /foo/bar
+            // then, against foo/bar
+            // then, in the case of partials, match with a /
+            const match = rule.match('/' + entry) ||
+              rule.match(entry) ||
+              (!!partial && (
+                rule.match('/' + entry + '/') ||
+                rule.match(entry + '/'))) ||
+              (!!partial && rule.negate && (
+                rule.match('/' + entry, true) ||
+                rule.match(entry, true)))
+
+            if (match) {
+              included = rule.negate
+            }
+          }
+        })
+      }
+    })
+
+    return included
+  }
+}
+
+class WalkerSync extends Walker {
+  start () {
+    this.onReaddir(fs.readdirSync(this.path))
+    return this
+  }
+
+  addIgnoreFile (file, then) {
+    const ig = path.resolve(this.path, file)
+    this.onReadIgnoreFile(file, fs.readFileSync(ig, 'utf8'), then)
+  }
+
+  stat ({ entry, file, dir }, then) {
+    const abs = this.path + '/' + entry
+    let st = fs.lstatSync(abs)
+    const isSymbolicLink = st.isSymbolicLink()
+    if (this.follow && isSymbolicLink) {
+      st = fs.statSync(abs)
+    }
+
+    // console.error('STAT SYNC', {st, entry, file, dir, isSymbolicLink, then})
+    this.onstat({ st, entry, file, dir, isSymbolicLink }, then)
+  }
+
+  walker (entry, opts, then) {
+    new WalkerSync(this.walkerOpt(entry, opts)).start()
+    then()
+  }
+}
+
+const walk = (opts, callback) => {
+  const p = new Promise((resolve, reject) => {
+    new Walker(opts).on('done', resolve).on('error', reject).start()
+  })
+  return callback ? p.then(res => callback(null, res), callback) : p
+}
+
+const walkSync = opts => new WalkerSync(opts).start().result
+
+module.exports = walk
+walk.sync = walkSync
+walk.Walker = Walker
+walk.WalkerSync = WalkerSync
+
+
+/***/ }),
+
 /***/ 2492:
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
@@ -6203,6 +6503,821 @@ function globUnescape (s) {
 function regExpEscape (s) {
   return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')
 }
+
+
+/***/ }),
+
+/***/ 4265:
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+
+
+// walk the tree of deps starting from the top level list of bundled deps
+// Any deps at the top level that are depended on by a bundled dep that
+// does not have that dep in its own node_modules folder are considered
+// bundled deps as well.  This list of names can be passed to npm-packlist
+// as the "bundled" argument.  Additionally, packageJsonCache is shared so
+// packlist doesn't have to re-read files already consumed in this pass
+
+const fs = __webpack_require__(5747)
+const path = __webpack_require__(5622)
+const EE = __webpack_require__(8614).EventEmitter
+// we don't care about the package bins, but we share a pj cache
+// with other modules that DO care about it, so keep it nice.
+const normalizePackageBin = __webpack_require__(3262)
+
+class BundleWalker extends EE {
+  constructor (opt) {
+    opt = opt || {}
+    super(opt)
+    this.path = path.resolve(opt.path || process.cwd())
+
+    this.parent = opt.parent || null
+    if (this.parent) {
+      this.result = this.parent.result
+      // only collect results in node_modules folders at the top level
+      // since the node_modules in a bundled dep is included always
+      if (!this.parent.parent) {
+        const base = path.basename(this.path)
+        const scope = path.basename(path.dirname(this.path))
+        this.result.add(/^@/.test(scope) ? scope + '/' + base : base)
+      }
+      this.root = this.parent.root
+      this.packageJsonCache = this.parent.packageJsonCache
+    } else {
+      this.result = new Set()
+      this.root = this.path
+      this.packageJsonCache = opt.packageJsonCache || new Map()
+    }
+
+    this.seen = new Set()
+    this.didDone = false
+    this.children = 0
+    this.node_modules = []
+    this.package = null
+    this.bundle = null
+  }
+
+  addListener (ev, fn) {
+    return this.on(ev, fn)
+  }
+
+  on (ev, fn) {
+    const ret = super.on(ev, fn)
+    if (ev === 'done' && this.didDone) {
+      this.emit('done', this.result)
+    }
+    return ret
+  }
+
+  done () {
+    if (!this.didDone) {
+      this.didDone = true
+      if (!this.parent) {
+        const res = Array.from(this.result)
+        this.result = res
+        this.emit('done', res)
+      } else {
+        this.emit('done')
+      }
+    }
+  }
+
+  start () {
+    const pj = path.resolve(this.path, 'package.json')
+    if (this.packageJsonCache.has(pj))
+      this.onPackage(this.packageJsonCache.get(pj))
+    else
+      this.readPackageJson(pj)
+    return this
+  }
+
+  readPackageJson (pj) {
+    fs.readFile(pj, (er, data) =>
+      er ? this.done() : this.onPackageJson(pj, data))
+  }
+
+  onPackageJson (pj, data) {
+    try {
+      this.package = normalizePackageBin(JSON.parse(data + ''))
+    } catch (er) {
+      return this.done()
+    }
+    this.packageJsonCache.set(pj, this.package)
+    this.onPackage(this.package)
+  }
+
+  allDepsBundled (pkg) {
+    return Object.keys(pkg.dependencies || {}).concat(
+      Object.keys(pkg.optionalDependencies || {}))
+  }
+
+  onPackage (pkg) {
+    // all deps are bundled if we got here as a child.
+    // otherwise, only bundle bundledDeps
+    // Get a unique-ified array with a short-lived Set
+    const bdRaw = this.parent ? this.allDepsBundled(pkg)
+      : pkg.bundleDependencies || pkg.bundledDependencies || []
+
+    const bd = Array.from(new Set(
+      Array.isArray(bdRaw) ? bdRaw
+      : bdRaw === true ? this.allDepsBundled(pkg)
+      : Object.keys(bdRaw)))
+
+    if (!bd.length)
+      return this.done()
+
+    this.bundle = bd
+    const nm = this.path + '/node_modules'
+    this.readModules()
+  }
+
+  readModules () {
+    readdirNodeModules(this.path + '/node_modules', (er, nm) =>
+      er ? this.onReaddir([]) : this.onReaddir(nm))
+  }
+
+  onReaddir (nm) {
+    // keep track of what we have, in case children need it
+    this.node_modules = nm
+
+    this.bundle.forEach(dep => this.childDep(dep))
+    if (this.children === 0)
+      this.done()
+  }
+
+  childDep (dep) {
+    if (this.node_modules.indexOf(dep) !== -1) {
+      if (!this.seen.has(dep)) {
+        this.seen.add(dep)
+        this.child(dep)
+      }
+    } else if (this.parent) {
+      this.parent.childDep(dep)
+    }
+  }
+
+  child (dep) {
+    const p = this.path + '/node_modules/' + dep
+    this.children += 1
+    const child = new BundleWalker({
+      path: p,
+      parent: this
+    })
+    child.on('done', _ => {
+      if (--this.children === 0)
+        this.done()
+    })
+    child.start()
+  }
+}
+
+class BundleWalkerSync extends BundleWalker {
+  constructor (opt) {
+    super(opt)
+  }
+
+  start () {
+    super.start()
+    this.done()
+    return this
+  }
+
+  readPackageJson (pj) {
+    try {
+      this.onPackageJson(pj, fs.readFileSync(pj))
+    } catch (er) {}
+    return this
+  }
+
+  readModules () {
+    try {
+      this.onReaddir(readdirNodeModulesSync(this.path + '/node_modules'))
+    } catch (er) {
+      this.onReaddir([])
+    }
+  }
+
+  child (dep) {
+    new BundleWalkerSync({
+      path: this.path + '/node_modules/' + dep,
+      parent: this
+    }).start()
+  }
+}
+
+const readdirNodeModules = (nm, cb) => {
+  fs.readdir(nm, (er, set) => {
+    if (er)
+      cb(er)
+    else {
+      const scopes = set.filter(f => /^@/.test(f))
+      if (!scopes.length)
+        cb(null, set)
+      else {
+        const unscoped = set.filter(f => !/^@/.test(f))
+        let count = scopes.length
+        scopes.forEach(scope => {
+          fs.readdir(nm + '/' + scope, (er, pkgs) => {
+            if (er || !pkgs.length)
+              unscoped.push(scope)
+            else
+              unscoped.push.apply(unscoped, pkgs.map(p => scope + '/' + p))
+            if (--count === 0)
+              cb(null, unscoped)
+          })
+        })
+      }
+    }
+  })
+}
+
+const readdirNodeModulesSync = nm => {
+  const set = fs.readdirSync(nm)
+  const unscoped = set.filter(f => !/^@/.test(f))
+  const scopes = set.filter(f => /^@/.test(f)).map(scope => {
+    try {
+      const pkgs = fs.readdirSync(nm + '/' + scope)
+      return pkgs.length ? pkgs.map(p => scope + '/' + p) : [scope]
+    } catch (er) {
+      return [scope]
+    }
+  }).reduce((a, b) => a.concat(b), [])
+  return unscoped.concat(scopes)
+}
+
+const walk = (options, callback) => {
+  const p = new Promise((resolve, reject) => {
+    new BundleWalker(options).on('done', resolve).on('error', reject).start()
+  })
+  return callback ? p.then(res => callback(null, res), callback) : p
+}
+
+const walkSync = options => {
+  return new BundleWalkerSync(options).start().result
+}
+
+module.exports = walk
+walk.sync = walkSync
+walk.BundleWalker = BundleWalker
+walk.BundleWalkerSync = BundleWalkerSync
+
+
+/***/ }),
+
+/***/ 3262:
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+// pass in a manifest with a 'bin' field here, and it'll turn it
+// into a properly santized bin object
+const {join, basename} = __webpack_require__(5622)
+
+const normalize = pkg =>
+  !pkg.bin ? removeBin(pkg)
+  : typeof pkg.bin === 'string' ? normalizeString(pkg)
+  : Array.isArray(pkg.bin) ? normalizeArray(pkg)
+  : typeof pkg.bin === 'object' ? normalizeObject(pkg)
+  : removeBin(pkg)
+
+const normalizeString = pkg => {
+  if (!pkg.name)
+    return removeBin(pkg)
+  pkg.bin = { [pkg.name]: pkg.bin }
+  return normalizeObject(pkg)
+}
+
+const normalizeArray = pkg => {
+  pkg.bin = pkg.bin.reduce((acc, k) => {
+    acc[basename(k)] = k
+    return acc
+  }, {})
+  return normalizeObject(pkg)
+}
+
+const removeBin = pkg => {
+  delete pkg.bin
+  return pkg
+}
+
+const normalizeObject = pkg => {
+  const orig = pkg.bin
+  const clean = {}
+  let hasBins = false
+  Object.keys(orig).forEach(binKey => {
+    const base = join('/', basename(binKey.replace(/\\|:/g, '/'))).substr(1)
+
+    if (typeof orig[binKey] !== 'string' || !base)
+      return
+
+    const binTarget = join('/', orig[binKey])
+      .replace(/\\/g, '/').substr(1)
+
+    if (!binTarget)
+      return
+
+    clean[base] = binTarget
+    hasBins = true
+  })
+
+  if (hasBins)
+    pkg.bin = clean
+  else
+    delete pkg.bin
+
+  return pkg
+}
+
+module.exports = normalize
+
+
+/***/ }),
+
+/***/ 1933:
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+
+
+// Do a two-pass walk, first to get the list of packages that need to be
+// bundled, then again to get the actual files and folders.
+// Keep a cache of node_modules content and package.json data, so that the
+// second walk doesn't have to re-do all the same work.
+
+const bundleWalk = __webpack_require__(4265)
+const BundleWalker = bundleWalk.BundleWalker
+const BundleWalkerSync = bundleWalk.BundleWalkerSync
+
+const ignoreWalk = __webpack_require__(7629)
+const IgnoreWalker = ignoreWalk.Walker
+const IgnoreWalkerSync = ignoreWalk.WalkerSync
+
+const rootBuiltinRules = Symbol('root-builtin-rules')
+const packageNecessaryRules = Symbol('package-necessary-rules')
+const path = __webpack_require__(5622)
+
+const normalizePackageBin = __webpack_require__(3262)
+
+// Weird side-effect of this: a readme (etc) file will be included
+// if it exists anywhere within a folder with a package.json file.
+// The original intent was only to include these files in the root,
+// but now users in the wild are dependent on that behavior for
+// localized documentation and other use cases.  Adding a `/` to
+// these rules, while tempting and arguably more "correct", is a
+// significant change that will break existing use cases.
+const packageMustHaveFileNames = 'readme|copying|license|licence'
+
+const packageMustHaves = `@(${packageMustHaveFileNames}){,.*[^~$]}`
+const packageMustHavesRE = new RegExp(`^(${packageMustHaveFileNames})(\\..*[^~$])?$`, 'i')
+
+const fs = __webpack_require__(5747)
+const glob = __webpack_require__(1957)
+
+const defaultRules = [
+  '.npmignore',
+  '.gitignore',
+  '**/.git',
+  '**/.svn',
+  '**/.hg',
+  '**/CVS',
+  '**/.git/**',
+  '**/.svn/**',
+  '**/.hg/**',
+  '**/CVS/**',
+  '/.lock-wscript',
+  '/.wafpickle-*',
+  '/build/config.gypi',
+  'npm-debug.log',
+  '**/.npmrc',
+  '.*.swp',
+  '.DS_Store',
+  '**/.DS_Store/**',
+  '._*',
+  '**/._*/**',
+  '*.orig',
+  '/package-lock.json',
+  '/yarn.lock',
+  '/archived-packages/**',
+]
+
+// There may be others, but :?|<> are handled by node-tar
+const nameIsBadForWindows = file => /\*/.test(file)
+
+// a decorator that applies our custom rules to an ignore walker
+const npmWalker = Class => class Walker extends Class {
+  constructor (opt) {
+    opt = opt || {}
+
+    // the order in which rules are applied.
+    opt.ignoreFiles = [
+      rootBuiltinRules,
+      'package.json',
+      '.npmignore',
+      '.gitignore',
+      packageNecessaryRules,
+    ]
+
+    opt.includeEmpty = false
+    opt.path = opt.path || process.cwd()
+
+    // only follow links in the root node_modules folder, because if those
+    // folders are included, it's because they're bundled, and bundles
+    // should include the contents, not the symlinks themselves.
+    // This regexp tests to see that we're either a node_modules folder,
+    // or a @scope within a node_modules folder, in the root's node_modules
+    // hierarchy (ie, not in test/foo/node_modules/ or something).
+    const followRe = /^(?:\/node_modules\/(?:@[^/]+\/[^/]+|[^/]+)\/)*\/node_modules(?:\/@[^/]+)?$/
+    const rootPath = opt.parent ? opt.parent.root : opt.path
+    const followTestPath = opt.path.replace(/\\/g, '/').substr(rootPath.length)
+    opt.follow = followRe.test(followTestPath)
+
+    super(opt)
+
+    // ignore a bunch of things by default at the root level.
+    // also ignore anything in the main project node_modules hierarchy,
+    // except bundled dependencies
+    if (this.isProject) {
+      this.bundled = opt.bundled || []
+      this.bundledScopes = Array.from(new Set(
+        this.bundled.filter(f => /^@/.test(f))
+          .map(f => f.split('/')[0])))
+      const rules = defaultRules.join('\n') + '\n'
+      this.packageJsonCache = this.parent ? this.parent.packageJsonCache
+        : (opt.packageJsonCache || new Map())
+      super.onReadIgnoreFile(rootBuiltinRules, rules, _ => _)
+    } else {
+      this.bundled = []
+      this.bundledScopes = []
+      this.packageJsonCache = this.parent.packageJsonCache
+    }
+  }
+
+  get isProject () {
+    return !this.parent || this.parent.follow && this.isSymbolicLink
+  }
+
+  onReaddir (entries) {
+    if (this.isProject) {
+      entries = entries.filter(e =>
+        e !== '.git' &&
+        !(e === 'node_modules' && this.bundled.length === 0)
+      )
+    }
+
+    // if we have a package.json, then look in it for 'files'
+    // we _only_ do this in the root project, not bundled deps
+    // or other random folders.  Bundled deps are always assumed
+    // to be in the state the user wants to include them, and
+    // a package.json somewhere else might be a template or
+    // test or something else entirely.
+    if (!this.isProject || !entries.includes('package.json')) {
+      return super.onReaddir(entries)
+    }
+
+    // when the cache has been seeded with the root manifest,
+    // we must respect that (it may differ from the filesystem)
+    const ig = path.resolve(this.path, 'package.json')
+
+    if (this.packageJsonCache.has(ig)) {
+      const pkg = this.packageJsonCache.get(ig)
+
+      // fall back to filesystem when seeded manifest is invalid
+      if (!pkg || typeof pkg !== 'object') {
+        return this.readPackageJson(entries)
+      }
+
+      // feels wonky, but this ensures package bin is _always_
+      // normalized, as well as guarding against invalid JSON
+      return this.getPackageFiles(entries, JSON.stringify(pkg))
+    }
+
+    this.readPackageJson(entries)
+  }
+
+  onReadPackageJson (entries, er, pkg) {
+    if (er) {
+      this.emit('error', er)
+    } else {
+      this.getPackageFiles(entries, pkg)
+    }
+  }
+
+  mustHaveFilesFromPackage (pkg) {
+    const files = []
+    if (pkg.browser) {
+      files.push('/' + pkg.browser)
+    }
+    if (pkg.main) {
+      files.push('/' + pkg.main)
+    }
+    if (pkg.bin) {
+      // always an object because normalized already
+      for (const key in pkg.bin) {
+        files.push('/' + pkg.bin[key])
+      }
+    }
+    files.push(
+      '/package.json',
+      '/npm-shrinkwrap.json',
+      '!/package-lock.json',
+      packageMustHaves
+    )
+    return files
+  }
+
+  getPackageFiles (entries, pkg) {
+    try {
+      // XXX this could be changed to use read-package-json-fast
+      // which handles the normalizing of bins for us, and simplifies
+      // the test for bundleDependencies and bundledDependencies later.
+      // HOWEVER if we do this, we need to be sure that we're careful
+      // about what we write back out since rpj-fast removes some fields
+      // that the user likely wants to keep. it also would add a second
+      // file read that we would want to optimize away.
+      pkg = normalizePackageBin(JSON.parse(pkg.toString()))
+    } catch (er) {
+      // not actually a valid package.json
+      return super.onReaddir(entries)
+    }
+
+    const ig = path.resolve(this.path, 'package.json')
+    this.packageJsonCache.set(ig, pkg)
+
+    // no files list, just return the normal readdir() result
+    if (!Array.isArray(pkg.files)) {
+      return super.onReaddir(entries)
+    }
+
+    pkg.files.push(...this.mustHaveFilesFromPackage(pkg))
+
+    // If the package has a files list, then it's unlikely to include
+    // node_modules, because why would you do that?  but since we use
+    // the files list as the effective readdir result, that means it
+    // looks like we don't have a node_modules folder at all unless we
+    // include it here.
+    if ((pkg.bundleDependencies || pkg.bundledDependencies) && entries.includes('node_modules')) {
+      pkg.files.push('node_modules')
+    }
+
+    const patterns = Array.from(new Set(pkg.files)).reduce((set, pattern) => {
+      const excl = pattern.match(/^!+/)
+      if (excl) {
+        pattern = pattern.substr(excl[0].length)
+      }
+      // strip off any / from the start of the pattern.  /foo => foo
+      pattern = pattern.replace(/^\/+/, '')
+      // an odd number of ! means a negated pattern.  !!foo ==> foo
+      const negate = excl && excl[0].length % 2 === 1
+      set.push({ pattern, negate })
+      return set
+    }, [])
+
+    let n = patterns.length
+    const set = new Set()
+    const negates = new Set()
+    const results = []
+    const then = (pattern, negate, er, fileList, i) => {
+      if (er) {
+        return this.emit('error', er)
+      }
+
+      results[i] = { negate, fileList }
+      if (--n === 0) {
+        processResults(results)
+      }
+    }
+    const processResults = results => {
+      for (const {negate, fileList} of results) {
+        if (negate) {
+          fileList.forEach(f => {
+            f = f.replace(/\/+$/, '')
+            set.delete(f)
+            negates.add(f)
+          })
+        } else {
+          fileList.forEach(f => {
+            f = f.replace(/\/+$/, '')
+            set.add(f)
+            negates.delete(f)
+          })
+        }
+      }
+
+      const list = Array.from(set)
+      // replace the files array with our computed explicit set
+      pkg.files = list.concat(Array.from(negates).map(f => '!' + f))
+      const rdResult = Array.from(new Set(
+        list.map(f => f.replace(/^\/+/, ''))
+      ))
+      super.onReaddir(rdResult)
+    }
+
+    // maintain the index so that we process them in-order only once all
+    // are completed, otherwise the parallelism messes things up, since a
+    // glob like **/*.js will always be slower than a subsequent !foo.js
+    patterns.forEach(({pattern, negate}, i) =>
+      this.globFiles(pattern, (er, res) => then(pattern, negate, er, res, i)))
+  }
+
+  filterEntry (entry, partial) {
+    // get the partial path from the root of the walk
+    const p = this.path.substr(this.root.length + 1)
+    const pkgre = /^node_modules\/(@[^/]+\/?[^/]+|[^/]+)(\/.*)?$/
+    const { isProject } = this
+    const pkg = isProject && pkgre.test(entry) ?
+      entry.replace(pkgre, '$1') : null
+    const rootNM = isProject && entry === 'node_modules'
+    const rootPJ = isProject && entry === 'package.json'
+
+    return (
+      // if we're in a bundled package, check with the parent.
+      /^node_modules($|\/)/i.test(p) && !this.isProject ? this.parent.filterEntry(
+        this.basename + '/' + entry, partial)
+
+      // if package is bundled, all files included
+      // also include @scope dirs for bundled scoped deps
+      // they'll be ignored if no files end up in them.
+      // However, this only matters if we're in the root.
+      // node_modules folders elsewhere, like lib/node_modules,
+      // should be included normally unless ignored.
+      : pkg ? this.bundled.indexOf(pkg) !== -1 ||
+        this.bundledScopes.indexOf(pkg) !== -1
+
+      // only walk top node_modules if we want to bundle something
+      : rootNM ? !!this.bundled.length
+
+      // always include package.json at the root.
+      : rootPJ ? true
+
+      // always include readmes etc in any included dir
+      : packageMustHavesRE.test(entry) ? true
+
+      // npm-shrinkwrap and package.json always included in the root pkg
+      : isProject && (entry === 'npm-shrinkwrap.json' || entry === 'package.json')
+        ? true
+
+      // package-lock never included
+        : isProject && entry === 'package-lock.json' ? false
+
+        // otherwise, follow ignore-walk's logic
+        : super.filterEntry(entry, partial)
+    )
+  }
+
+  filterEntries () {
+    if (this.ignoreRules['.npmignore']) {
+      this.ignoreRules['.gitignore'] = null
+    }
+    this.filterEntries = super.filterEntries
+    super.filterEntries()
+  }
+
+  addIgnoreFile (file, then) {
+    const ig = path.resolve(this.path, file)
+    if (file === 'package.json' && !this.isProject) {
+      then()
+    } else if (this.packageJsonCache.has(ig)) {
+      this.onPackageJson(ig, this.packageJsonCache.get(ig), then)
+    } else {
+      super.addIgnoreFile(file, then)
+    }
+  }
+
+  onPackageJson (ig, pkg, then) {
+    this.packageJsonCache.set(ig, pkg)
+
+    if (Array.isArray(pkg.files)) {
+      // in this case we already included all the must-haves
+      super.onReadIgnoreFile('package.json', pkg.files.map(
+        f => '!' + f
+      ).join('\n') + '\n', then)
+    } else {
+      // if there's a bin, browser or main, make sure we don't ignore it
+      // also, don't ignore the package.json itself, or any files that
+      // must be included in the package.
+      const rules = this.mustHaveFilesFromPackage(pkg).map(f => `!${f}`)
+      const data = rules.join('\n') + '\n'
+      super.onReadIgnoreFile(packageNecessaryRules, data, then)
+    }
+  }
+
+  // override parent stat function to completely skip any filenames
+  // that will break windows entirely.
+  // XXX(isaacs) Next major version should make this an error instead.
+  stat ({ entry, file, dir }, then) {
+    if (nameIsBadForWindows(entry)) {
+      then()
+    } else {
+      super.stat({ entry, file, dir }, then)
+    }
+  }
+
+  // override parent onstat function to nix all symlinks, other than
+  // those coming out of the followed bundled symlink deps
+  onstat ({ st, entry, file, dir, isSymbolicLink }, then) {
+    if (st.isSymbolicLink()) {
+      then()
+    } else {
+      super.onstat({ st, entry, file, dir, isSymbolicLink }, then)
+    }
+  }
+
+  onReadIgnoreFile (file, data, then) {
+    if (file === 'package.json') {
+      try {
+        const ig = path.resolve(this.path, file)
+        this.onPackageJson(ig, JSON.parse(data), then)
+      } catch (er) {
+        // ignore package.json files that are not json
+        then()
+      }
+    } else {
+      super.onReadIgnoreFile(file, data, then)
+    }
+  }
+
+  sort (a, b) {
+    return sort(a, b)
+  }
+}
+
+class Walker extends npmWalker(IgnoreWalker) {
+  globFiles (pattern, cb) {
+    glob(pattern, { dot: true, cwd: this.path, nocase: true }, cb)
+  }
+
+  readPackageJson (entries) {
+    fs.readFile(this.path + '/package.json', (er, pkg) =>
+      this.onReadPackageJson(entries, er, pkg))
+  }
+
+  walker (entry, opt, then) {
+    new Walker(this.walkerOpt(entry, opt)).on('done', then).start()
+  }
+}
+
+class WalkerSync extends npmWalker(IgnoreWalkerSync) {
+  globFiles (pattern, cb) {
+    cb(null, glob.sync(pattern, { dot: true, cwd: this.path, nocase: true }))
+  }
+
+  readPackageJson (entries) {
+    const p = this.path + '/package.json'
+    try {
+      this.onReadPackageJson(entries, null, fs.readFileSync(p))
+    } catch (er) {
+      this.onReadPackageJson(entries, er)
+    }
+  }
+
+  walker (entry, opt, then) {
+    new WalkerSync(this.walkerOpt(entry, opt)).start()
+    then()
+  }
+}
+
+const walk = (options, callback) => {
+  options = options || {}
+  const p = new Promise((resolve, reject) => {
+    const bw = new BundleWalker(options)
+    bw.on('done', bundled => {
+      options.bundled = bundled
+      options.packageJsonCache = bw.packageJsonCache
+      new Walker(options).on('done', resolve).on('error', reject).start()
+    })
+    bw.start()
+  })
+  return callback ? p.then(res => callback(null, res), callback) : p
+}
+
+const walkSync = options => {
+  options = options || {}
+  const bw = new BundleWalkerSync(options).start()
+  options.bundled = bw.result
+  options.packageJsonCache = bw.packageJsonCache
+  const walker = new WalkerSync(options)
+  walker.start()
+  return walker.result
+}
+
+// optimize for compressibility
+// extname, then basename, then locale alphabetically
+// https://twitter.com/isntitvacant/status/1131094910923231232
+const sort = (a, b) => {
+  const exta = path.extname(a).toLowerCase()
+  const extb = path.extname(b).toLowerCase()
+  const basea = path.basename(a).toLowerCase()
+  const baseb = path.basename(b).toLowerCase()
+
+  return exta.localeCompare(extb, 'en') ||
+    basea.localeCompare(baseb, 'en') ||
+    a.localeCompare(b, 'en')
+}
+
+module.exports = walk
+walk.sync = walkSync
+walk.Walker = Walker
+walk.WalkerSync = WalkerSync
 
 
 /***/ }),
@@ -7821,22 +8936,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadPackageArtifact = void 0;
-const path_1 = __importDefault(__webpack_require__(5622));
 const artifact_client_1 = __webpack_require__(1390);
-const npm_client_1 = __webpack_require__(1055);
 const string_1 = __webpack_require__(4969);
+const file_selection_1 = __webpack_require__(6515);
 const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0, function* () {
     const { projectFolder } = pkg;
-    const tarName = yield npm_client_1.packPackage(projectFolder);
-    const tarPath = path_1.default.resolve(projectFolder, tarName);
     const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
-    yield artifact_client_1.uploadArtifact(artifactName, [tarPath], projectFolder, options);
-    return Object.assign({ artifactName, tarName }, pkg);
+    const files = yield file_selection_1.filesToPack(pkg);
+    yield artifact_client_1.uploadArtifact(artifactName, files, projectFolder, options);
+    return Object.assign({ artifactName }, pkg);
 });
 exports.uploadPackageArtifact = uploadPackageArtifact;
 
@@ -7856,17 +8966,26 @@ upload_packages_1.uploadPackages();
 /***/ }),
 
 /***/ 3586:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 "use strict";
 
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadArtifact = void 0;
 const artifact_1 = __webpack_require__(2605);
-const uploadArtifact = (artifactName, files, rootDir, options) => {
+const uploadArtifact = (artifactName, files, rootDir, options) => __awaiter(void 0, void 0, void 0, function* () {
     const artifactClient = artifact_1.create();
     return artifactClient.uploadArtifact(artifactName, files, rootDir, options);
-};
+});
 exports.uploadArtifact = uploadArtifact;
 
 
@@ -7904,32 +9023,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 
 /***/ }),
 
-/***/ 4537:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.executeCommand = void 0;
-const child_process_1 = __webpack_require__(3129);
-const executeCommand = (cmd, options) => {
-    return new Promise((resolve, reject) => {
-        child_process_1.exec(cmd, options, (error, result) => {
-            if (error) {
-                reject(error);
-            }
-            else {
-                resolve(result.toString());
-            }
-        });
-    });
-};
-exports.executeCommand = executeCommand;
-
-
-/***/ }),
-
-/***/ 1055:
+/***/ 1111:
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 "use strict";
@@ -7943,14 +9037,51 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.packPackage = void 0;
-const child_process_client_1 = __webpack_require__(4537);
-const packPackage = (packagePath) => __awaiter(void 0, void 0, void 0, function* () {
-    const packOutput = yield child_process_client_1.executeCommand('npm pack', { cwd: packagePath });
-    return packOutput.trim();
+exports.filesToPack = void 0;
+const npm_packlist_1 = __importDefault(__webpack_require__(1933));
+const path_1 = __webpack_require__(5622);
+const files_1 = __webpack_require__(7466);
+const filesToPack = ({ packageName, projectFolder, }) => __awaiter(void 0, void 0, void 0, function* () {
+    // indexOf may return -1, in which case we take the whole string
+    // If not we skip the first /, and thus get everything after the package's scope
+    const simplePackageName = packageName.substring(packageName.indexOf('/') + 1);
+    const filesPromise = npm_packlist_1.default({ path: projectFolder });
+    const logFiles = [
+        path_1.join(projectFolder, `${simplePackageName}.build.log`),
+        path_1.join(projectFolder, `${simplePackageName}.build.error.log`),
+    ];
+    const files = (yield filesPromise).map((filename) => {
+        return path_1.join(projectFolder, filename);
+    });
+    files.push(...logFiles.filter(files_1.existsSync));
+    return files;
 });
-exports.packPackage = packPackage;
+exports.filesToPack = filesToPack;
+
+
+/***/ }),
+
+/***/ 6515:
+/***/ (function(__unused_webpack_module, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+__exportStar(__webpack_require__(1111), exports);
 
 
 /***/ }),
@@ -7983,14 +9114,22 @@ const uploadPackages = () => __awaiter(void 0, void 0, void 0, function* () {
         const continueOnError = JSON.parse(continueOnErrorInput);
         const retentionDays = JSON.parse(retentionDaysInput);
         const uploadOptions = { continueOnError, retentionDays };
-        const artifacts = yield async_1.waterfallMap(packages, (pkg) => upload_package_artifact_1.uploadPackageArtifact(pkg, uploadOptions));
+        const artifacts = yield async_1.waterfallMap(packages, (pkg) => __awaiter(void 0, void 0, void 0, function* () { return upload_package_artifact_1.uploadPackageArtifact(pkg, uploadOptions); }));
         core_1.setOutput('artifacts', artifacts);
     }
     catch (e) {
-        core_1.setFailed(e.message);
+        if (hasMessage(e)) {
+            core_1.setFailed(e.message);
+        }
+        else {
+            core_1.setFailed(e);
+        }
     }
 });
 exports.uploadPackages = uploadPackages;
+function hasMessage(e) {
+    return typeof e === 'object' && 'message' in e;
+}
 
 
 /***/ }),
@@ -8024,6 +9163,24 @@ exports.waterfallMap = waterfallMap;
 
 /***/ }),
 
+/***/ 7466:
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.existsSync = void 0;
+const fs_1 = __webpack_require__(5747);
+// Attempting to mock fs can lead to issues since node uses it internally
+// So we have this very simple proxy
+function existsSync(path) {
+    return fs_1.existsSync(path);
+}
+exports.existsSync = existsSync;
+
+
+/***/ }),
+
 /***/ 4969:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -8044,14 +9201,6 @@ exports.toAlphaNumeric = toAlphaNumeric;
 
 "use strict";
 module.exports = require("assert");;
-
-/***/ }),
-
-/***/ 3129:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("child_process");;
 
 /***/ }),
 

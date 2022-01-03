@@ -7,3 +7,8 @@ export type RecursivePartial<T> = {
     ? RecursivePartial<T[P]>
     : T[P];
 };
+
+export type RushPackage = {
+  packageName: string;
+  projectFolder: string;
+};
