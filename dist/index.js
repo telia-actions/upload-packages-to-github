@@ -8945,7 +8945,8 @@ const uploadPackageArtifact = (pkg, options) => __awaiter(void 0, void 0, void 0
     const { projectFolder } = pkg;
     const artifactName = string_1.toAlphaNumeric(projectFolder, '_');
     const files = yield file_selection_1.filesToPack(pkg);
-    yield artifact_client_1.uploadArtifact(artifactName, files, projectFolder, options);
+    const client = artifact_client_1.createClient();
+    yield artifact_client_1.uploadArtifact(client, artifactName, files, projectFolder, options);
     return Object.assign({ artifactName }, pkg);
 });
 exports.uploadPackageArtifact = uploadPackageArtifact;
@@ -8980,11 +8981,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.uploadArtifact = void 0;
+exports.uploadArtifact = exports.createClient = void 0;
 const artifact_1 = __webpack_require__(2605);
-const uploadArtifact = (artifactName, files, rootDir, options) => __awaiter(void 0, void 0, void 0, function* () {
-    const artifactClient = artifact_1.create();
-    return artifactClient.uploadArtifact(artifactName, files, rootDir, options);
+const core_1 = __webpack_require__(2186);
+const createClient = () => artifact_1.create();
+exports.createClient = createClient;
+const uploadArtifact = (artifactClient, artifactName, files, rootDir, options) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        return yield artifactClient.uploadArtifact(artifactName, files, rootDir, options);
+    }
+    catch (e) {
+        core_1.error(`Failed to upload "${artifactName}" artifact to github due to ${e}`);
+    }
 });
 exports.uploadArtifact = uploadArtifact;
 

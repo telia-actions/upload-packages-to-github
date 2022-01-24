@@ -11,7 +11,7 @@ export const filesToPack = async ({
   // If not we skip the first /, and thus get everything after the package's scope
   const simplePackageName = packageName.substring(packageName.indexOf('/') + 1);
 
-  const filesPromise = packlist({ path: projectFolder });
+  const filesPromise: Promise<string[]> = packlist({ path: projectFolder });
   const logFiles = [
     join(projectFolder, `${simplePackageName}.build.log`),
     join(projectFolder, `${simplePackageName}.build.error.log`),
