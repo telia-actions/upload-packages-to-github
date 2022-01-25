@@ -1,9 +1,9 @@
 import { uploadPackageArtifact } from '../upload-package-artifact';
 import * as formattersString from '../../../utils/formatters/string';
-import * as artifactClient from '../../../services/artifact-client/artifact-client';
+import * as artifactClient from '../../../services/artifact-client';
 import * as fileSelection from '../../../services/file-selection';
 
-jest.mock('../../../services/artifact-client/artifact-client');
+jest.mock('../../../services/artifact-client');
 jest.mock('../../../utils/formatters/string');
 jest.mock('../../../services/file-selection');
 
@@ -26,7 +26,7 @@ describe('features upload package artifact', () => {
         .mockResolvedValue(['the-file-to-upload']);
 
       const uploadArtifactSpy = jest.spyOn(artifactClient, 'uploadArtifact');
-
+      const clientSpy = jest.spyOn(artifactClient, 'createClient');
       const result = await uploadPackageArtifact(pkg);
 
       expect(result.artifactName).toEqual(artifactName);
@@ -38,8 +38,11 @@ describe('features upload package artifact', () => {
       expect(toAlphaNumericSpy).toHaveBeenCalledTimes(1);
       expect(toAlphaNumericSpy).toHaveBeenCalledWith(pkg.projectFolder, '_');
 
+      expect(clientSpy).toHaveBeenCalledTimes(1);
+
       expect(uploadArtifactSpy).toHaveBeenCalledTimes(1);
       expect(uploadArtifactSpy).toHaveBeenCalledWith(
+        undefined,
         artifactName,
         ['the-file-to-upload'],
         pkg.projectFolder,
